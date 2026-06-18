@@ -30,11 +30,13 @@ swift build
 swift test
 ```
 
-## 打包 `.app`
+## 打包安装包
 
 ```bash
 scripts/package-app.sh
-open .build/Winstore.app
+open .build/package/Winstore-0.1.0.pkg
 ```
 
-当前脚本生成未签名本地 `.app`，用于开发验证。正式发布建议使用 Developer ID 签名、公证和 DMG 分发。
+脚本会生成 `.build/Winstore.app` 和 `.build/package/Winstore-0.1.0.pkg`。安装包会把应用安装到 `/Applications/Winstore.app`。
+
+当前脚本使用本地 ad-hoc 签名，适合开发和内部验证。正式发布建议使用 Developer ID 签名、公证后再分发。
