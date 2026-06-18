@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Xcode user state
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Local editor and tooling state
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+*.tmp
