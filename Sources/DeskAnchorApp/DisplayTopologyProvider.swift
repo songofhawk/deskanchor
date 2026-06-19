@@ -5,16 +5,22 @@ import DeskAnchorCore
 @MainActor
 final class DisplayTopologyProvider {
     func currentTopology() -> DisplayTopology {
+        let screens = NSScreen.screens
         let mainDisplayID = NSScreen.main?.displayID
-        let displays = NSScreen.screens.map { screen in
+        let mainBounds = Rect((NSScreen.main ?? screens.first)?.frame ?? .zero)
+        let displays = screens.map { screen in
             let displayID = screen.displayID
+            let appKitBounds = Rect(screen.frame)
             return DisplayDescriptor(
                 id: displayID,
                 name: screen.localizedName,
                 vendor: CGDisplayVendorNumber(displayID),
                 model: CGDisplayModelNumber(displayID),
                 serial: CGDisplaySerialNumber(displayID),
-                bounds: Rect(screen.frame),
+                bounds: DisplayCoordinateSpace.accessibilityBounds(
+                    fromAppKitBounds: appKitBounds,
+                    mainAppKitBounds: mainBounds
+                ),
                 scale: screen.backingScaleFactor,
                 isMain: displayID == mainDisplayID
             )

@@ -24,21 +24,46 @@ final class AccessibilityWindowManager {
 
     func captureWindows() -> [WindowRecord] {
         let topology = displayProvider.currentTopology()
-        let records = NSWorkspace.shared.runningApplications.flatMap { app in
+        let accessibilityRecords = NSWorkspace.shared.runningApplications.flatMap { app in
             windows(for: app, topology: topology)
         }
-        return WindowMatcher.assignOccurrences(records)
+        if !accessibilityRecords.isEmpty {
+            return WindowMatcher.assignOccurrences(accessibilityRecords)
+        }
+
+        return WindowMatcher.assignOccurrences(windowServerWindows(topology: topology))
     }
 
     func restore(snapshot: LayoutSnapshot) -> RestoreResult {
         let currentTopology = displayProvider.currentTopology()
         let liveWindows = liveWindowHandles()
+        var exactWindowsByKey: [String: WindowHandle] = [:]
+        var appWindowsByKey: [String: [WindowHandle]] = [:]
+        var reservedExactWindowIDs: Set<WindowIdentifier> = []
+        var usedWindowIDs: Set<WindowIdentifier> = []
         var restored = 0
         var skipped = 0
         var failed = 0
 
+        for window in liveWindows {
+            exactWindowsByKey[window.record.signature.matchKey] = window
+            appWindowsByKey[window.record.signature.applicationMatchKey, default: []].append(window)
+        }
+
         for record in snapshot.windows where !record.isMinimized {
-            guard let handle = liveWindows[record.signature.matchKey] else {
+            if let exact = exactWindowsByKey[record.signature.matchKey] {
+                reservedExactWindowIDs.insert(exact.id)
+            }
+        }
+
+        for record in snapshot.windows where !record.isMinimized {
+            guard let handle = bestLiveWindow(
+                for: record,
+                exactWindowsByKey: exactWindowsByKey,
+                appWindowsByKey: appWindowsByKey,
+                reservedExactWindowIDs: reservedExactWindowIDs,
+                usedWindowIDs: usedWindowIDs
+            ) else {
                 skipped += 1
                 continue
             }
@@ -63,6 +88,7 @@ final class AccessibilityWindowManager {
 
             if move(window: handle.element, to: target) {
                 restored += 1
+                usedWindowIDs.insert(handle.id)
             } else {
                 failed += 1
             }
@@ -71,18 +97,35 @@ final class AccessibilityWindowManager {
         return RestoreResult(restored: restored, skipped: skipped, failed: failed)
     }
 
-    private func liveWindowHandles() -> [String: WindowHandle] {
+    private func bestLiveWindow(
+        for record: WindowRecord,
+        exactWindowsByKey: [String: WindowHandle],
+        appWindowsByKey: [String: [WindowHandle]],
+        reservedExactWindowIDs: Set<WindowIdentifier>,
+        usedWindowIDs: Set<WindowIdentifier>
+    ) -> WindowHandle? {
+        if let exact = exactWindowsByKey[record.signature.matchKey],
+           !usedWindowIDs.contains(exact.id) {
+            return exact
+        }
+
+        return appWindowsByKey[record.signature.applicationMatchKey]?.first { candidate in
+            !reservedExactWindowIDs.contains(candidate.id) && !usedWindowIDs.contains(candidate.id)
+        }
+    }
+
+    private func liveWindowHandles() -> [WindowHandle] {
         let topology = displayProvider.currentTopology()
         let handles = NSWorkspace.shared.runningApplications.flatMap { app in
             windowHandles(for: app, topology: topology)
         }
         let assigned = WindowMatcher.assignOccurrences(handles.map(\.record))
-        var result: [String: WindowHandle] = [:]
+        var result: [WindowHandle] = []
 
         for (index, record) in assigned.enumerated() {
             var handle = handles[index]
             handle.record = record
-            result[record.signature.matchKey] = handle
+            result.append(handle)
         }
 
         return result
@@ -90,6 +133,52 @@ final class AccessibilityWindowManager {
 
     private func windows(for app: NSRunningApplication, topology: DisplayTopology) -> [WindowRecord] {
         windowHandles(for: app, topology: topology).map(\.record)
+    }
+
+    private func windowServerWindows(topology: DisplayTopology) -> [WindowRecord] {
+        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            return []
+        }
+
+        return windowList.compactMap { info in
+            guard let processIdentifier = info[kCGWindowOwnerPID as String] as? pid_t,
+                  processIdentifier != ownProcessIdentifier,
+                  let layer = info[kCGWindowLayer as String] as? Int,
+                  layer == 0,
+                  let boundsDictionary = info[kCGWindowBounds as String] as? [String: Any],
+                  let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary),
+                  bounds.width >= 80,
+                  bounds.height >= 60 else {
+                return nil
+            }
+
+            let app = NSRunningApplication(processIdentifier: processIdentifier)
+            guard app?.activationPolicy == .regular else {
+                return nil
+            }
+
+            let ownerName = app?.localizedName
+                ?? info[kCGWindowOwnerName as String] as? String
+                ?? ""
+            let title = info[kCGWindowName as String] as? String ?? ""
+            let frame = Rect(bounds)
+            let signature = WindowSignature(
+                bundleIdentifier: app?.bundleIdentifier ?? "",
+                ownerName: ownerName,
+                titleFingerprint: WindowMatcher.fingerprint(title: title),
+                role: "CGWindow",
+                subrole: "",
+                occurrence: 0
+            )
+
+            return WindowRecord(
+                signature: signature,
+                title: title,
+                frame: frame,
+                displayHardwareKey: DisplayLocator.displayHardwareKey(for: frame, in: topology),
+                isMinimized: false
+            )
+        }
     }
 
     private func windowHandles(for app: NSRunningApplication, topology: DisplayTopology) -> [WindowHandle] {
@@ -145,7 +234,7 @@ final class AccessibilityWindowManager {
             isMinimized: isMinimized
         )
 
-        return WindowHandle(element: window, record: record)
+        return WindowHandle(id: WindowIdentifier(processIdentifier: app.processIdentifier, element: window), element: window, record: record)
     }
 
     private func move(window: AXUIElement, to frame: Rect) -> Bool {
@@ -164,8 +253,19 @@ final class AccessibilityWindowManager {
 }
 
 private struct WindowHandle {
+    var id: WindowIdentifier
     var element: AXUIElement
     var record: WindowRecord
+}
+
+private struct WindowIdentifier: Hashable {
+    var processIdentifier: pid_t
+    var elementHash: CFHashCode
+
+    init(processIdentifier: pid_t, element: AXUIElement) {
+        self.processIdentifier = processIdentifier
+        self.elementHash = CFHash(element)
+    }
 }
 
 private func copyAttribute(_ element: AXUIElement, _ attribute: String) -> Any? {

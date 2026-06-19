@@ -31,6 +31,7 @@ final class LayoutCoordinator {
     }
 
     func start() {
+        normalizeStoredLayouts()
         publish(status)
         lastTopologyKey = displayProvider.currentTopology().topologyKey
 
@@ -65,10 +66,20 @@ final class LayoutCoordinator {
         )
     }
 
-    func saveCurrentLayout(reason: String = "手动保存") {
+    func layoutHistory() -> [LayoutSnapshot] {
+        do {
+            return try store.snapshots()
+        } catch {
+            publish(status.withMessage("读取保存历史失败：\(error.localizedDescription)"))
+            return []
+        }
+    }
+
+    @discardableResult
+    func saveCurrentLayout(reason: String = "手动保存") -> LayoutSnapshot? {
         guard permissionManager.isTrusted else {
             publish(status.withMessage("需要辅助功能权限才能保存窗口位置"))
-            return
+            return nil
         }
 
         let topology = displayProvider.currentTopology()
@@ -78,8 +89,10 @@ final class LayoutCoordinator {
         do {
             try store.upsert(snapshot)
             publish(status.withMessage("\(reason)：已保存 \(windows.count) 个窗口"))
+            return snapshot
         } catch {
             publish(status.withMessage("保存失败：\(error.localizedDescription)"))
+            return nil
         }
     }
 
@@ -126,6 +139,14 @@ final class LayoutCoordinator {
             return
         }
         publish(currentStatus)
+    }
+
+    private func normalizeStoredLayouts() {
+        do {
+            try store.normalizeStorage()
+        } catch {
+            publish(status.withMessage("迁移保存历史失败：\(error.localizedDescription)"))
+        }
     }
 
     @objc private func screenParametersChanged() {

@@ -34,6 +34,13 @@ public struct WindowSignature: Codable, Equatable, Hashable, Sendable {
             String(occurrence)
         ].joined(separator: "\u{1F}")
     }
+
+    public var applicationMatchKey: String {
+        if !bundleIdentifier.isEmpty {
+            return "bundle:\(bundleIdentifier)"
+        }
+        return "owner:\(ownerName)"
+    }
 }
 
 public struct WindowRecord: Codable, Equatable, Sendable {

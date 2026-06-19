@@ -2,15 +2,88 @@ import Foundation
 
 public struct LayoutDatabase: Codable, Equatable, Sendable {
     public var version: Int
-    public var snapshotsByTopologyKey: [String: LayoutSnapshot]
+    public var snapshotsByDisplaySetKey: [String: [LayoutSnapshot]]
 
-    public init(version: Int = 1, snapshotsByTopologyKey: [String: LayoutSnapshot] = [:]) {
+    public init(version: Int = 2, snapshotsByDisplaySetKey: [String: [LayoutSnapshot]] = [:]) {
         self.version = version
-        self.snapshotsByTopologyKey = snapshotsByTopologyKey
+        self.snapshotsByDisplaySetKey = snapshotsByDisplaySetKey
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case snapshotsByDisplaySetKey
+        case snapshotsByTopologyKey
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
+
+        if let histories = try container.decodeIfPresent([String: [LayoutSnapshot]].self, forKey: .snapshotsByDisplaySetKey) {
+            snapshotsByDisplaySetKey = histories.mapValues(Self.sortedHistory)
+            return
+        }
+
+        let legacySnapshots = try container.decodeIfPresent([String: LayoutSnapshot].self, forKey: .snapshotsByTopologyKey) ?? [:]
+        snapshotsByDisplaySetKey = Dictionary(grouping: legacySnapshots.values) { snapshot in
+            snapshot.topology.displaySetKey
+        }.mapValues(Self.sortedHistory)
+        version = 2
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(snapshotsByDisplaySetKey, forKey: .snapshotsByDisplaySetKey)
+    }
+
+    public mutating func normalizeLegacyCoordinateSpace() {
+        let snapshots = snapshotsByDisplaySetKey.values
+            .flatMap { $0 }
+            .map(Self.normalizedLegacyCoordinateSpace)
+
+        snapshotsByDisplaySetKey = Dictionary(grouping: snapshots) { snapshot in
+            snapshot.topology.displaySetKey
+        }.mapValues(Self.sortedHistory)
+        version = 2
+    }
+
+    private static func sortedHistory(_ snapshots: [LayoutSnapshot]) -> [LayoutSnapshot] {
+        snapshots.sorted { lhs, rhs in
+            lhs.capturedAt > rhs.capturedAt
+        }
+    }
+
+    private static func normalizedLegacyCoordinateSpace(_ snapshot: LayoutSnapshot) -> LayoutSnapshot {
+        let convertedTopology = DisplayCoordinateSpace.accessibilityTopology(fromAppKitTopology: snapshot.topology)
+        guard convertedTopology != snapshot.topology,
+              containedWindowCount(in: convertedTopology, windows: snapshot.windows) > containedWindowCount(in: snapshot.topology, windows: snapshot.windows) else {
+            return snapshot
+        }
+
+        return LayoutSnapshot(
+            topology: convertedTopology,
+            windows: snapshot.windows.map { record in
+                var copy = record
+                copy.displayHardwareKey = DisplayLocator.displayHardwareKey(for: record.frame, in: convertedTopology)
+                return copy
+            },
+            capturedAt: snapshot.capturedAt
+        )
+    }
+
+    private static func containedWindowCount(in topology: DisplayTopology, windows: [WindowRecord]) -> Int {
+        windows.reduce(0) { count, record in
+            topology.displays.contains { display in
+                display.bounds.containsCenter(of: record.frame)
+            } ? count + 1 : count
+        }
     }
 }
 
 public final class LayoutStore: @unchecked Sendable {
+    private static let maxHistoryPerDisplaySet = 20
+
     private let fileURL: URL
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -56,13 +129,40 @@ public final class LayoutStore: @unchecked Sendable {
         try data.write(to: fileURL, options: [.atomic])
     }
 
+    public func normalizeStorage() throws {
+        var database = try load()
+        database.normalizeLegacyCoordinateSpace()
+        try save(database)
+    }
+
     public func upsert(_ snapshot: LayoutSnapshot) throws {
         var database = try load()
-        database.snapshotsByTopologyKey[snapshot.topology.topologyKey] = snapshot
+        let key = snapshot.topology.displaySetKey
+        var history = database.snapshotsByDisplaySetKey[key, default: []]
+        history.insert(snapshot, at: 0)
+        history.sort { lhs, rhs in
+            lhs.capturedAt > rhs.capturedAt
+        }
+        if history.count > Self.maxHistoryPerDisplaySet {
+            history.removeLast(history.count - Self.maxHistoryPerDisplaySet)
+        }
+        database.snapshotsByDisplaySetKey[key] = history
         try save(database)
     }
 
     public func snapshot(for topology: DisplayTopology) throws -> LayoutSnapshot? {
-        try load().snapshotsByTopologyKey[topology.topologyKey]
+        try history(for: topology).first
+    }
+
+    public func history(for topology: DisplayTopology) throws -> [LayoutSnapshot] {
+        try load().snapshotsByDisplaySetKey[topology.displaySetKey] ?? []
+    }
+
+    public func snapshots() throws -> [LayoutSnapshot] {
+        try load().snapshotsByDisplaySetKey.values
+            .flatMap { $0 }
+            .sorted { lhs, rhs in
+                lhs.capturedAt > rhs.capturedAt
+            }
     }
 }

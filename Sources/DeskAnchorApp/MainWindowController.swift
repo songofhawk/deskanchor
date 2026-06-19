@@ -1,7 +1,8 @@
 import AppKit
+import DeskAnchorCore
 
 @MainActor
-final class MainWindowController: NSWindowController, NSWindowDelegate {
+final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     private let coordinator: LayoutCoordinator
 
     private let statusMessageLabel = NSTextField(labelWithString: "")
@@ -10,17 +11,33 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let displayValueLabel = NSTextField(labelWithString: "")
     private let identityLabel = NSTextField(labelWithString: "")
     private let permissionButton = AccentButton(title: "打开辅助功能设置", style: .secondary)
+    private let historyTable = NSTableView()
+    private let windowTable = NSTableView()
+    private let emptyHistoryLabel = NSTextField(labelWithString: "还没有保存历史")
+    private let snapshotTitleLabel = NSTextField(labelWithString: "选择一条保存历史")
+    private let snapshotMetaLabel = NSTextField(labelWithString: "")
+    private let displayArrangementLabel = NSTextField(labelWithString: "")
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .medium
+        return formatter
+    }()
+    private var history: [LayoutSnapshot] = []
+    private var selectedSnapshot: LayoutSnapshot?
+    private var selectedWindows: [WindowRecord] = []
 
     init(coordinator: LayoutCoordinator) {
         self.coordinator = coordinator
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 940, height: 620),
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "DeskAnchor"
+        window.minSize = NSSize(width: 980, height: 620)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
@@ -30,6 +47,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentView = buildContentView()
+        refreshHistory(selection: .first)
         update(status: coordinator.status)
     }
 
@@ -60,6 +78,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         displayPill.configure(text: status.displayCount == 1 ? "单屏" : "\(status.displayCount) 屏", tint: .controlAccentColor)
         displayValueLabel.stringValue = "\(status.displayCount) 台显示器已连接"
         statusMessageLabel.stringValue = status.message ?? "正在守护你的窗口布局"
+        refreshHistory(selection: .keepCurrent)
     }
 
     // MARK: - Layout
@@ -70,17 +89,31 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         background.blendingMode = .behindWindow
         background.state = .active
 
-        let stack = NSStackView(views: [
+        let leftStack = NSStackView(views: [
             buildHeader(),
             buildStatusCard(),
             buildMessageRow(),
             buildActionsCard(),
             identityFooter()
         ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 18
+        leftStack.orientation = .vertical
+        leftStack.alignment = .leading
+        leftStack.spacing = 18
+        leftStack.translatesAutoresizingMaskIntoConstraints = false
+        leftStack.setHuggingPriority(.required, for: .vertical)
+        leftStack.setContentCompressionResistancePriority(.required, for: .vertical)
+
+        let stack = NSStackView(views: [
+            leftStack,
+            buildHistoryBrowser()
+        ])
+        stack.orientation = .horizontal
+        stack.alignment = .top
+        stack.distribution = .fill
+        stack.spacing = 22
         stack.translatesAutoresizingMaskIntoConstraints = false
+
+        leftStack.widthAnchor.constraint(equalToConstant: 330).isActive = true
         stack.setHuggingPriority(.defaultHigh, for: .vertical)
 
         background.addSubview(stack)
@@ -92,6 +125,44 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         ])
 
         return background
+    }
+
+    private func buildHistoryBrowser() -> NSView {
+        let titleLabel = NSTextField(labelWithString: "保存历史")
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+
+        let subtitleLabel = NSTextField(labelWithString: "按保存时间查看显示器排列和窗口")
+        subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        subtitleLabel.textColor = .secondaryLabelColor
+
+        let header = NSStackView(views: [titleLabel, subtitleLabel])
+        header.orientation = .vertical
+        header.alignment = .leading
+        header.spacing = 2
+
+        configureHistoryTable()
+        configureWindowTable()
+
+        let browser = NSSplitView()
+        browser.isVertical = true
+        browser.dividerStyle = .thin
+        browser.translatesAutoresizingMaskIntoConstraints = false
+        browser.addArrangedSubview(historyScrollView())
+        browser.addArrangedSubview(snapshotDetailView())
+
+        let container = NSStackView(views: [header, browser])
+        container.orientation = .vertical
+        container.alignment = .leading
+        container.spacing = 10
+        container.translatesAutoresizingMaskIntoConstraints = false
+        fillWidth(container)
+
+        NSLayoutConstraint.activate([
+            browser.widthAnchor.constraint(equalTo: container.widthAnchor),
+            browser.heightAnchor.constraint(greaterThanOrEqualToConstant: 500)
+        ])
+
+        return container
     }
 
     private func buildHeader() -> NSView {
@@ -155,6 +226,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             separator.widthAnchor.constraint(equalTo: rows.widthAnchor)
         ])
         fillWidth(card)
+        card.heightAnchor.constraint(equalToConstant: 116).isActive = true
+        card.setContentHuggingPriority(.required, for: .vertical)
+        card.setContentCompressionResistancePriority(.required, for: .vertical)
         return card
     }
 
@@ -203,6 +277,126 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         return stack
     }
 
+    private func configureHistoryTable() {
+        guard historyTable.tableColumns.isEmpty else { return }
+
+        historyTable.headerView = nil
+        historyTable.rowHeight = 52
+        historyTable.selectionHighlightStyle = .regular
+        historyTable.dataSource = self
+        historyTable.delegate = self
+        historyTable.usesAlternatingRowBackgroundColors = false
+        historyTable.addTableColumn(tableColumn("history", width: 210))
+    }
+
+    private func configureWindowTable() {
+        guard windowTable.tableColumns.isEmpty else { return }
+
+        windowTable.headerView = nil
+        windowTable.rowHeight = 44
+        windowTable.selectionHighlightStyle = .none
+        windowTable.dataSource = self
+        windowTable.delegate = self
+        windowTable.addTableColumn(tableColumn("window", width: 320))
+    }
+
+    private func tableColumn(_ identifier: String, width: CGFloat) -> NSTableColumn {
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
+        column.width = width
+        column.minWidth = width
+        column.resizingMask = .autoresizingMask
+        return column
+    }
+
+    private func historyScrollView() -> NSView {
+        emptyHistoryLabel.font = .systemFont(ofSize: 12.5, weight: .medium)
+        emptyHistoryLabel.textColor = .secondaryLabelColor
+        emptyHistoryLabel.alignment = .center
+
+        let scrollView = NSScrollView()
+        scrollView.borderType = .noBorder
+        scrollView.hasVerticalScroller = true
+        scrollView.documentView = historyTable
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(scrollView)
+        container.addSubview(emptyHistoryLabel)
+
+        emptyHistoryLabel.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(greaterThanOrEqualToConstant: 210),
+            scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: container.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            emptyHistoryLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            emptyHistoryLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
+
+        return container
+    }
+
+    private func snapshotDetailView() -> NSView {
+        snapshotTitleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        snapshotTitleLabel.lineBreakMode = .byTruncatingTail
+
+        snapshotMetaLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        snapshotMetaLabel.textColor = .secondaryLabelColor
+        snapshotMetaLabel.maximumNumberOfLines = 2
+
+        displayArrangementLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        displayArrangementLabel.textColor = .secondaryLabelColor
+        displayArrangementLabel.maximumNumberOfLines = 6
+        displayArrangementLabel.lineBreakMode = .byTruncatingTail
+
+        let displaysTitle = sectionTitle("显示器排列")
+        let windowsTitle = sectionTitle("窗口")
+
+        let windowScrollView = NSScrollView()
+        windowScrollView.borderType = .noBorder
+        windowScrollView.hasVerticalScroller = true
+        windowScrollView.documentView = windowTable
+        windowScrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let stack = NSStackView(views: [
+            snapshotTitleLabel,
+            snapshotMetaLabel,
+            displaysTitle,
+            displayArrangementLabel,
+            windowsTitle,
+            windowScrollView
+        ])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(greaterThanOrEqualToConstant: 300),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            windowScrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            windowScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 230)
+        ])
+
+        return container
+    }
+
+    private func sectionTitle(_ title: String) -> NSTextField {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 12, weight: .semibold)
+        label.textColor = .labelColor
+        return label
+    }
+
     private func identityFooter() -> NSView {
         identityLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         identityLabel.textColor = .tertiaryLabelColor
@@ -249,10 +443,121 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         return "\(bundleID)\n\(Bundle.main.bundlePath)"
     }
 
+    // MARK: - History
+
+    private enum HistorySelection {
+        case first
+        case keepCurrent
+        case snapshot(Date)
+    }
+
+    private func refreshHistory(selection: HistorySelection) {
+        let selectedID = selectedSnapshot?.capturedAt
+        history = coordinator.layoutHistory()
+        historyTable.reloadData()
+        emptyHistoryLabel.isHidden = !history.isEmpty
+
+        guard !history.isEmpty else {
+            selectSnapshot(nil)
+            return
+        }
+
+        let rowToSelect: Int
+        switch selection {
+        case .first:
+            rowToSelect = 0
+        case .snapshot(let capturedAt):
+            rowToSelect = history.firstIndex(where: { $0.capturedAt == capturedAt }) ?? 0
+        case .keepCurrent:
+            if let selectedID,
+               let existingRow = history.firstIndex(where: { $0.capturedAt == selectedID }) {
+                rowToSelect = existingRow
+            } else {
+                rowToSelect = max(0, min(historyTable.selectedRow, history.count - 1))
+            }
+        }
+
+        historyTable.selectRowIndexes(IndexSet(integer: rowToSelect), byExtendingSelection: false)
+        selectSnapshot(history[rowToSelect])
+    }
+
+    private func selectSnapshot(_ snapshot: LayoutSnapshot?) {
+        selectedSnapshot = snapshot
+        selectedWindows = snapshot?.windows.sorted { lhs, rhs in
+            if lhs.signature.ownerName != rhs.signature.ownerName {
+                return lhs.signature.ownerName < rhs.signature.ownerName
+            }
+            return lhs.title < rhs.title
+        } ?? []
+
+        guard let snapshot else {
+            snapshotTitleLabel.stringValue = "选择一条保存历史"
+            snapshotMetaLabel.stringValue = "保存后会在这里显示屏幕和窗口详情"
+            displayArrangementLabel.stringValue = ""
+            windowTable.reloadData()
+            return
+        }
+
+        snapshotTitleLabel.stringValue = dateFormatter.string(from: snapshot.capturedAt)
+        snapshotMetaLabel.stringValue = "\(snapshot.topology.displays.count) 台显示器，\(snapshot.windows.count) 个窗口"
+        displayArrangementLabel.stringValue = snapshot.topology.humanSummary
+        windowTable.reloadData()
+    }
+
+    nonisolated func numberOfRows(in tableView: NSTableView) -> Int {
+        MainActor.assumeIsolated {
+            tableView === historyTable ? history.count : selectedWindows.count
+        }
+    }
+
+    nonisolated func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        MainActor.assumeIsolated {
+            if tableView === historyTable {
+                return historyCell(for: row)
+            }
+            return windowCell(for: row)
+        }
+    }
+
+    nonisolated func tableViewSelectionDidChange(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            let row = historyTable.selectedRow
+            guard row >= 0, row < history.count else {
+                selectSnapshot(nil)
+                return
+            }
+            selectSnapshot(history[row])
+        }
+    }
+
+    private func historyCell(for row: Int) -> NSView {
+        guard row < history.count else { return NSView() }
+        let snapshot = history[row]
+        let title = dateFormatter.string(from: snapshot.capturedAt)
+        let subtitle = "\(snapshot.topology.displays.count) 台显示器 · \(snapshot.windows.count) 个窗口"
+        return TwoLineTableCell(title: title, subtitle: subtitle)
+    }
+
+    private func windowCell(for row: Int) -> NSView {
+        guard row < selectedWindows.count, let snapshot = selectedSnapshot else { return NSView() }
+        let record = selectedWindows[row]
+        let title = record.title.isEmpty ? record.signature.ownerName : "\(record.signature.ownerName) · \(record.title)"
+        let displayName = snapshot.topology.displays.first {
+            $0.hardwareKey == record.displayHardwareKey
+        }?.name ?? "未知显示器"
+        let frame = record.frame.rounded()
+        let subtitle = "\(displayName) · x \(Int(frame.x)), y \(Int(frame.y)), \(Int(frame.width))x\(Int(frame.height))"
+        return TwoLineTableCell(title: title, subtitle: subtitle)
+    }
+
     // MARK: - Actions
 
     @objc private func saveLayout() {
-        coordinator.saveCurrentLayout()
+        guard let snapshot = coordinator.saveCurrentLayout() else {
+            refreshHistory(selection: .keepCurrent)
+            return
+        }
+        refreshHistory(selection: .snapshot(snapshot.capturedAt))
     }
 
     @objc private func restoreLayout() {
@@ -265,6 +570,38 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 }
 
 // MARK: - Custom views
+
+private final class TwoLineTableCell: NSTableCellView {
+    init(title: String, subtitle: String) {
+        super.init(frame: .zero)
+
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.font = .systemFont(ofSize: 12.5, weight: .semibold)
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.maximumNumberOfLines = 1
+
+        let subtitleLabel = NSTextField(labelWithString: subtitle)
+        subtitleLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        subtitleLabel.textColor = .secondaryLabelColor
+        subtitleLabel.lineBreakMode = .byTruncatingTail
+        subtitleLabel.maximumNumberOfLines = 1
+
+        let stack = NSStackView(views: [titleLabel, subtitleLabel])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 2
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+}
 
 /// Rounded "card" surface with a subtle fill and border that follows the system appearance.
 private final class CardView: NSView {

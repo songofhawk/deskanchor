@@ -27,6 +27,31 @@ public struct Rect: Codable, Equatable, Sendable {
         CGRect(x: x, y: y, width: width, height: height)
     }
 
+    public var maxX: Double {
+        x + width
+    }
+
+    public var maxY: Double {
+        y + height
+    }
+
+    public var centerX: Double {
+        x + width / 2
+    }
+
+    public var centerY: Double {
+        y + height / 2
+    }
+
+    public func containsCenter(of rect: Rect) -> Bool {
+        let centerX = rect.centerX
+        let centerY = rect.centerY
+        return centerX >= x
+            && centerX <= maxX
+            && centerY >= y
+            && centerY <= maxY
+    }
+
     public func rounded(rule: FloatingPointRoundingRule = .toNearestOrAwayFromZero) -> Rect {
         Rect(
             x: x.rounded(rule),

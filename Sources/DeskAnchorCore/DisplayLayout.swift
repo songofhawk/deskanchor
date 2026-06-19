@@ -60,6 +60,13 @@ public struct DisplayTopology: Codable, Equatable, Sendable {
             .joined(separator: "|")
     }
 
+    public var displaySetKey: String {
+        displays
+            .map(\.hardwareKey)
+            .sorted()
+            .joined(separator: "|")
+    }
+
     public var humanSummary: String {
         if displays.isEmpty {
             return "未检测到显示器"
