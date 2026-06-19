@@ -11,13 +11,18 @@ PKG_ROOT="$PKG_DIR/root"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+SWIFT_TEMP_DIR="$ROOT_DIR/.build/tmp/swift-temp"
+CLANG_CACHE_DIR="$ROOT_DIR/.build/tmp/clang-module-cache"
 
 cd "$ROOT_DIR"
+mkdir -p "$SWIFT_TEMP_DIR" "$CLANG_CACHE_DIR"
 swift build -c release
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$ROOT_DIR/.build/release/Winstore" "$MACOS_DIR/Winstore"
+TMPDIR="$SWIFT_TEMP_DIR" CLANG_MODULE_CACHE_PATH="$CLANG_CACHE_DIR" \
+    swift scripts/generate-app-icon.swift "$RESOURCES_DIR/Winstore.icns"
 
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -31,6 +36,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
     <key>CFBundleName</key>
     <string>Winstore</string>
     <key>CFBundleDisplayName</key>
+    <string>Winstore</string>
+    <key>CFBundleIconFile</key>
     <string>Winstore</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>

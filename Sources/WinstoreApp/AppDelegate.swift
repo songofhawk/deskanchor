@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: LayoutCoordinator?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.applicationIconImage = WinstoreIcon.appIcon(size: 512)
+
         do {
             let store = try LayoutStore.defaultStore()
             let preferencesStore = PreferencesStore()

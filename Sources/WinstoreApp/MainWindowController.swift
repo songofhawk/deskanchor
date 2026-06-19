@@ -95,7 +95,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func buildHeader() -> NSView {
-        let badge = IconBadge(symbolName: "macwindow.on.rectangle")
+        let badge = IconBadge()
 
         let titleLabel = NSTextField(labelWithString: "Winstore")
         titleLabel.font = .systemFont(ofSize: 26, weight: .bold)
@@ -285,28 +285,15 @@ private final class CardView: NSView {
     }
 }
 
-/// Gradient-filled rounded square holding an SF Symbol — the app's visual anchor.
+/// App icon surface used as the app's visual anchor.
 private final class IconBadge: NSView {
-    private let gradient = CAGradientLayer()
     private let imageView = NSImageView()
 
-    init(symbolName: String) {
+    init() {
         super.init(frame: .zero)
-        wantsLayer = true
 
-        gradient.colors = [
-            NSColor.controlAccentColor.cgColor,
-            NSColor.controlAccentColor.blended(withFraction: 0.45, of: .systemPurple)?.cgColor ?? NSColor.systemPurple.cgColor
-        ]
-        gradient.startPoint = CGPoint(x: 0, y: 1)
-        gradient.endPoint = CGPoint(x: 1, y: 0)
-        gradient.cornerRadius = 14
-        layer?.addSublayer(gradient)
-
-        let config = NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
-        imageView.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
-        imageView.contentTintColor = .white
+        imageView.image = WinstoreIcon.appIcon(size: 112)
+        imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(imageView)
 
@@ -314,17 +301,14 @@ private final class IconBadge: NSView {
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: 56),
             heightAnchor.constraint(equalToConstant: 56),
-            imageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            imageView.centerYAnchor.constraint(equalTo: centerYAnchor)
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
 
     required init?(coder: NSCoder) { nil }
-
-    override func layout() {
-        super.layout()
-        gradient.frame = bounds
-    }
 }
 
 /// Capsule status indicator with a tinted background and matching dot.

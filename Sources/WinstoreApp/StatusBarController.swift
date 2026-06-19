@@ -29,20 +29,22 @@ final class StatusBarController {
 
         let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
         let candidates = latestStatus.permissionGranted
-            ? ["macwindow.on.rectangle", "macwindow", "rectangle.on.rectangle", "rectangle.stack"]
+            ? []
             : ["exclamationmark.macwindow", "exclamationmark.triangle.fill"]
-        let image = candidates
-            .lazy
-            .compactMap { NSImage(systemSymbolName: $0, accessibilityDescription: "Winstore") }
-            .first?
-            .withSymbolConfiguration(config)
-        image?.isTemplate = latestStatus.permissionGranted
+        let image = latestStatus.permissionGranted
+            ? WinstoreIcon.menuBarIcon(size: 18)
+            : candidates
+                .lazy
+                .compactMap { NSImage(systemSymbolName: $0, accessibilityDescription: "Winstore") }
+                .first?
+                .withSymbolConfiguration(config)
+        image?.isTemplate = false
 
         if let image {
             button.image = image
             button.imagePosition = .imageOnly
             button.title = ""
-            button.contentTintColor = latestStatus.permissionGranted ? .labelColor : .systemOrange
+            button.contentTintColor = latestStatus.permissionGranted ? nil : .systemOrange
             statusItem.length = NSStatusItem.squareLength
         } else {
             button.image = nil
