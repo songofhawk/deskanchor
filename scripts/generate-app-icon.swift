@@ -3,10 +3,10 @@
 import AppKit
 import Foundation
 
-let outputPath = CommandLine.arguments.dropFirst().first ?? ".build/Winstore.icns"
+let outputPath = CommandLine.arguments.dropFirst().first ?? ".build/DeskAnchor.icns"
 let outputURL = URL(fileURLWithPath: outputPath)
 let fileManager = FileManager.default
-let iconsetURL = outputURL.deletingLastPathComponent().appendingPathComponent("Winstore.iconset")
+let iconsetURL = outputURL.deletingLastPathComponent().appendingPathComponent("DeskAnchor.iconset")
 
 try? fileManager.removeItem(at: iconsetURL)
 try fileManager.createDirectory(at: iconsetURL, withIntermediateDirectories: true)

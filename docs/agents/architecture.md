@@ -12,7 +12,7 @@
 ## 模块
 
 ```text
-Sources/WinstoreCore
+Sources/DeskAnchorCore
 ├── DisplayLayout.swift
 ├── DisplayLocator.swift
 ├── Geometry.swift
@@ -21,7 +21,7 @@ Sources/WinstoreCore
 ├── RestorePlanner.swift
 └── WindowLayout.swift
 
-Sources/WinstoreApp
+Sources/DeskAnchorApp
 ├── AccessibilityWindowManager.swift
 ├── AppDelegate.swift
 ├── DisplayTopologyProvider.swift

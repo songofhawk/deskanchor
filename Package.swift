@@ -3,25 +3,25 @@
 import PackageDescription
 
 let package = Package(
-    name: "Winstore",
+    name: "DeskAnchor",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "Winstore", targets: ["WinstoreApp"]),
-        .library(name: "WinstoreCore", targets: ["WinstoreCore"])
+        .executable(name: "DeskAnchor", targets: ["DeskAnchorApp"]),
+        .library(name: "DeskAnchorCore", targets: ["DeskAnchorCore"])
     ],
     targets: [
         .target(
-            name: "WinstoreCore"
+            name: "DeskAnchorCore"
         ),
         .executableTarget(
-            name: "WinstoreApp",
-            dependencies: ["WinstoreCore"]
+            name: "DeskAnchorApp",
+            dependencies: ["DeskAnchorCore"]
         ),
         .testTarget(
-            name: "WinstoreCoreTests",
-            dependencies: ["WinstoreCore"]
+            name: "DeskAnchorCoreTests",
+            dependencies: ["DeskAnchorCore"]
         )
     ]
 )

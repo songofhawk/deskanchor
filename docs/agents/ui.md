@@ -7,7 +7,7 @@
 菜单结构：
 
 ```text
-Winstore
+DeskAnchor
 显示器：N 台已连接
 权限正常 / 需要辅助功能权限
 
