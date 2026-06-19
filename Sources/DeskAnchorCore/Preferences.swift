@@ -2,17 +2,11 @@ import Foundation
 
 public struct Preferences: Codable, Equatable, Sendable {
     public var autoRestoreEnabled: Bool
-    public var autoSaveEnabled: Bool
-    public var saveIntervalSeconds: TimeInterval
 
     public init(
-        autoRestoreEnabled: Bool = true,
-        autoSaveEnabled: Bool = true,
-        saveIntervalSeconds: TimeInterval = 20
+        autoRestoreEnabled: Bool = true
     ) {
         self.autoRestoreEnabled = autoRestoreEnabled
-        self.autoSaveEnabled = autoSaveEnabled
-        self.saveIntervalSeconds = saveIntervalSeconds
     }
 }
 

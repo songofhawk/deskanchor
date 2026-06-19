@@ -10,7 +10,6 @@ final class LayoutCoordinator {
     private let displayProvider: DisplayTopologyProvider
     private let windowManager: AccessibilityWindowManager
     private let permissionManager: AccessibilityPermissionManager
-    private var timer: Timer?
     private var permissionRefreshTimer: Timer?
     private var lastPermissionGranted: Bool?
     private var lastTopologyKey: String?
@@ -48,11 +47,6 @@ final class LayoutCoordinator {
             object: nil
         )
 
-        timer = Timer.scheduledTimer(withTimeInterval: preferences.saveIntervalSeconds, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.periodicSave()
-            }
-        }
         permissionRefreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshPermissionStatusIfNeeded()
@@ -66,7 +60,6 @@ final class LayoutCoordinator {
             permissionGranted: permissionManager.isTrusted,
             displaySummary: topology.humanSummary,
             displayCount: topology.displays.count,
-            autoSaveEnabled: preferences.autoSaveEnabled,
             autoRestoreEnabled: preferences.autoRestoreEnabled,
             message: nil
         )
@@ -117,22 +110,9 @@ final class LayoutCoordinator {
         publish(status.withMessage(preferences.autoRestoreEnabled ? "已开启自动恢复" : "已暂停自动恢复"))
     }
 
-    func toggleAutoSave() {
-        preferences.autoSaveEnabled.toggle()
-        preferencesStore.save(preferences)
-        publish(status.withMessage(preferences.autoSaveEnabled ? "已开启自动保存" : "已暂停自动保存"))
-    }
-
     func openPermissionSettings() {
         permissionManager.requestTrustPrompt()
         permissionManager.openSystemSettings()
-    }
-
-    private func periodicSave() {
-        guard preferences.autoSaveEnabled else {
-            return
-        }
-        saveCurrentLayout(reason: "自动保存")
     }
 
     private func publish(_ newStatus: AppStatus) {
@@ -161,8 +141,6 @@ final class LayoutCoordinator {
                 guard let self else { return }
                 if self.preferences.autoRestoreEnabled {
                     self.restoreCurrentLayout(reason: "显示器重连自动恢复")
-                } else if self.preferences.autoSaveEnabled {
-                    self.saveCurrentLayout(reason: "显示器变化自动保存")
                 }
             }
         }
@@ -182,7 +160,6 @@ struct AppStatus: Equatable {
     var permissionGranted: Bool
     var displaySummary: String
     var displayCount: Int
-    var autoSaveEnabled: Bool
     var autoRestoreEnabled: Bool
     var message: String?
 

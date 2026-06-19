@@ -92,7 +92,6 @@ final class StatusBarController {
         menu.addItem(actionItem("保存当前布局", #selector(saveLayout)))
         menu.addItem(actionItem("恢复当前显示器布局", #selector(restoreLayout)))
         menu.addItem(actionItem(latestStatus.autoRestoreEnabled ? "暂停自动恢复" : "开启自动恢复", #selector(toggleAutoRestore)))
-        menu.addItem(actionItem(latestStatus.autoSaveEnabled ? "暂停自动保存" : "开启自动保存", #selector(toggleAutoSave)))
 
         menu.addItem(.separator())
         menu.addItem(actionItem("显示主界面", #selector(showMainWindowAction)))
@@ -120,10 +119,6 @@ final class StatusBarController {
 
     @objc private func toggleAutoRestore() {
         coordinator.toggleAutoRestore()
-    }
-
-    @objc private func toggleAutoSave() {
-        coordinator.toggleAutoSave()
     }
 
     @objc private func openPermissionSettings() {
