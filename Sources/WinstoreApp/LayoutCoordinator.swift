@@ -11,6 +11,8 @@ final class LayoutCoordinator {
     private let windowManager: AccessibilityWindowManager
     private let permissionManager: AccessibilityPermissionManager
     private var timer: Timer?
+    private var permissionRefreshTimer: Timer?
+    private var lastPermissionGranted: Bool?
     private var lastTopologyKey: String?
     private var preferences: Preferences
 
@@ -30,7 +32,7 @@ final class LayoutCoordinator {
     }
 
     func start() {
-        statusDidChange?(status)
+        publish(status)
         lastTopologyKey = displayProvider.currentTopology().topologyKey
 
         NotificationCenter.default.addObserver(
@@ -51,6 +53,11 @@ final class LayoutCoordinator {
                 self?.periodicSave()
             }
         }
+        permissionRefreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshPermissionStatusIfNeeded()
+            }
+        }
     }
 
     var status: AppStatus {
@@ -67,7 +74,7 @@ final class LayoutCoordinator {
 
     func saveCurrentLayout(reason: String = "手动保存") {
         guard permissionManager.isTrusted else {
-            statusDidChange?(status.withMessage("需要辅助功能权限才能保存窗口位置"))
+            publish(status.withMessage("需要辅助功能权限才能保存窗口位置"))
             return
         }
 
@@ -77,15 +84,15 @@ final class LayoutCoordinator {
 
         do {
             try store.upsert(snapshot)
-            statusDidChange?(status.withMessage("\(reason)：已保存 \(windows.count) 个窗口"))
+            publish(status.withMessage("\(reason)：已保存 \(windows.count) 个窗口"))
         } catch {
-            statusDidChange?(status.withMessage("保存失败：\(error.localizedDescription)"))
+            publish(status.withMessage("保存失败：\(error.localizedDescription)"))
         }
     }
 
     func restoreCurrentLayout(reason: String = "手动恢复") {
         guard permissionManager.isTrusted else {
-            statusDidChange?(status.withMessage("需要辅助功能权限才能恢复窗口位置"))
+            publish(status.withMessage("需要辅助功能权限才能恢复窗口位置"))
             return
         }
 
@@ -93,27 +100,27 @@ final class LayoutCoordinator {
 
         do {
             guard let snapshot = try store.snapshot(for: topology) else {
-                statusDidChange?(status.withMessage("当前显示器组合还没有保存布局"))
+                publish(status.withMessage("当前显示器组合还没有保存布局"))
                 return
             }
 
             let result = windowManager.restore(snapshot: snapshot)
-            statusDidChange?(status.withMessage("\(reason)：\(result.summary)"))
+            publish(status.withMessage("\(reason)：\(result.summary)"))
         } catch {
-            statusDidChange?(status.withMessage("恢复失败：\(error.localizedDescription)"))
+            publish(status.withMessage("恢复失败：\(error.localizedDescription)"))
         }
     }
 
     func toggleAutoRestore() {
         preferences.autoRestoreEnabled.toggle()
         preferencesStore.save(preferences)
-        statusDidChange?(status.withMessage(preferences.autoRestoreEnabled ? "已开启自动恢复" : "已暂停自动恢复"))
+        publish(status.withMessage(preferences.autoRestoreEnabled ? "已开启自动恢复" : "已暂停自动恢复"))
     }
 
     func toggleAutoSave() {
         preferences.autoSaveEnabled.toggle()
         preferencesStore.save(preferences)
-        statusDidChange?(status.withMessage(preferences.autoSaveEnabled ? "已开启自动保存" : "已暂停自动保存"))
+        publish(status.withMessage(preferences.autoSaveEnabled ? "已开启自动保存" : "已暂停自动保存"))
     }
 
     func openPermissionSettings() {
@@ -128,6 +135,19 @@ final class LayoutCoordinator {
         saveCurrentLayout(reason: "自动保存")
     }
 
+    private func publish(_ newStatus: AppStatus) {
+        lastPermissionGranted = newStatus.permissionGranted
+        statusDidChange?(newStatus)
+    }
+
+    private func refreshPermissionStatusIfNeeded() {
+        let currentStatus = status
+        guard currentStatus.permissionGranted != lastPermissionGranted else {
+            return
+        }
+        publish(currentStatus)
+    }
+
     @objc private func screenParametersChanged() {
         let currentKey = displayProvider.currentTopology().topologyKey
         guard currentKey != lastTopologyKey else {
@@ -135,7 +155,7 @@ final class LayoutCoordinator {
         }
         lastTopologyKey = currentKey
 
-        statusDidChange?(status.withMessage("显示器已变化，等待稳定"))
+        publish(status.withMessage("显示器已变化，等待稳定"))
         Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }

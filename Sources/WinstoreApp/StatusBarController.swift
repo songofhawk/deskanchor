@@ -11,7 +11,7 @@ final class StatusBarController {
     init(coordinator: LayoutCoordinator) {
         self.coordinator = coordinator
         self.latestStatus = coordinator.status
-        self.statusItem = NSStatusBar.system.statusItem(withLength: 118)
+        self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         configureButton()
         rebuildMenu()
     }
@@ -27,12 +27,32 @@ final class StatusBarController {
             return
         }
 
-        button.image = nil
-        button.imagePosition = .noImage
-        button.alignment = .center
-        button.title = latestStatus.permissionGranted ? "Winstore" : "Winstore 权限"
+        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        let candidates = latestStatus.permissionGranted
+            ? ["macwindow.on.rectangle", "macwindow", "rectangle.on.rectangle", "rectangle.stack"]
+            : ["exclamationmark.macwindow", "exclamationmark.triangle.fill"]
+        let image = candidates
+            .lazy
+            .compactMap { NSImage(systemSymbolName: $0, accessibilityDescription: "Winstore") }
+            .first?
+            .withSymbolConfiguration(config)
+        image?.isTemplate = latestStatus.permissionGranted
+
+        if let image {
+            button.image = image
+            button.imagePosition = .imageOnly
+            button.title = ""
+            button.contentTintColor = latestStatus.permissionGranted ? .labelColor : .systemOrange
+            statusItem.length = NSStatusItem.squareLength
+        } else {
+            button.image = nil
+            button.imagePosition = .noImage
+            button.title = "W"
+            button.contentTintColor = nil
+            statusItem.length = 28
+        }
         button.toolTip = latestStatus.message ?? "Winstore"
-        statusItem.length = 118
+        button.needsDisplay = true
     }
 
     private func rebuildMenu() {
