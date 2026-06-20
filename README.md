@@ -32,21 +32,15 @@ DeskAnchor 不需要屏幕录制权限，不读取窗口内容，也不会截屏
 
 ### 下载与安装
 
-#### 从发布包安装
-
-1. 打开 [Releases](https://github.com/songofhawk/deskanchor/releases) 页面。
-2. 下载最新的 `DeskAnchor-版本号.dmg`。
-3. 双击打开 DMG。
-4. 将 `DeskAnchor.app` 拖入 `Applications` 文件夹。
-5. 从 `Applications` 启动 DeskAnchor。
-
-如果你使用的是本仓库当前已经构建好的包，也可以直接打开：
+当前仓库还没有创建正式 GitHub Release。现阶段可以使用仓库内已经构建好的 DMG：
 
 ```bash
 open dist/DeskAnchor-0.1.0.dmg
 ```
 
-当前本地打包脚本使用 ad-hoc 签名，适合开发和内部验证。正式分发建议使用 Developer ID 签名并完成 notarization。
+打开 DMG 后，将 `DeskAnchor.app` 拖入 `Applications` 文件夹，再从 `Applications` 启动 DeskAnchor。
+
+正式发布后，安装包会放在 [GitHub Releases](https://github.com/songofhawk/deskanchor/releases) 页面下载。当前本地打包脚本使用 ad-hoc 签名，适合开发和内部验证；公开分发前建议使用 Developer ID 签名并完成 notarization。
 
 ### 首次授权
 
@@ -179,21 +173,15 @@ DeskAnchor does not require Screen Recording permission, does not inspect window
 
 ### Download And Install
 
-#### Install From A Release
-
-1. Open the [Releases](https://github.com/songofhawk/deskanchor/releases) page.
-2. Download the latest `DeskAnchor-version.dmg`.
-3. Open the DMG.
-4. Drag `DeskAnchor.app` into `Applications`.
-5. Launch DeskAnchor from `Applications`.
-
-If you are using the already-built package in this repository, open it with:
+This repository does not have a formal GitHub Release yet. For now, use the already-built DMG in this repository:
 
 ```bash
 open dist/DeskAnchor-0.1.0.dmg
 ```
 
-The current local packaging script uses ad-hoc signing, which is suitable for development and internal testing. A public release should use Developer ID signing and notarization.
+After opening the DMG, drag `DeskAnchor.app` into `Applications`, then launch DeskAnchor from `Applications`.
+
+After the first public release is created, installers will be available from the [GitHub Releases](https://github.com/songofhawk/deskanchor/releases) page. The current local packaging script uses ad-hoc signing, which is suitable for development and internal testing; a public release should use Developer ID signing and notarization.
 
 ### First-Time Permission
 
