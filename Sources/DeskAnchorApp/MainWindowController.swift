@@ -110,7 +110,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
         }
 
         displayPill.configure(text: status.displayCount == 1 ? "单屏" : "\(status.displayCount) 屏", tint: .controlAccentColor)
-        displayPill.isEnabled = false
+        displayPill.isEnabled = true
+        displayPill.toolTip = "点击打开显示器设置"
         displayValueLabel.stringValue = "\(status.displayCount) 台显示器已连接"
         statusMessageLabel.stringValue = status.message ?? (status.permissionGranted ? "正在守护你的窗口布局" : "点击“未授权”打开辅助功能设置")
         refreshHistory(selection: .keepCurrent)
@@ -275,6 +276,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
         let card = CardView()
         permissionPill.target = self
         permissionPill.action = #selector(openPermissionSettings)
+        displayPill.target = self
+        displayPill.action = #selector(openDisplaySettings)
 
         let permissionRow = infoRow(
             symbol: "lock.shield.fill",
@@ -292,11 +295,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
             title: "显示器",
             trailing: displayPill
         )
+        let clickableDisplayRow = ClickActionView(contentView: displayRow)
+        clickableDisplayRow.target = self
+        clickableDisplayRow.action = #selector(openDisplaySettings)
+        clickableDisplayRow.toolTip = "点击打开显示器设置"
 
         displayValueLabel.font = .systemFont(ofSize: 12)
         displayValueLabel.textColor = .secondaryLabelColor
 
-        let rows = NSStackView(views: [permissionRow, separator, displayRow, displayValueLabel])
+        let rows = NSStackView(views: [permissionRow, separator, clickableDisplayRow, displayValueLabel])
         rows.orientation = .vertical
         rows.alignment = .leading
         rows.spacing = 12
@@ -308,6 +315,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
             rows.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             rows.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
             rows.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+            permissionRow.widthAnchor.constraint(equalTo: rows.widthAnchor),
+            clickableDisplayRow.widthAnchor.constraint(equalTo: rows.widthAnchor),
             separator.widthAnchor.constraint(equalTo: rows.widthAnchor)
         ])
         fillWidth(card)
@@ -887,6 +896,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
         coordinator.openPermissionSettings()
     }
 
+    @objc private func openDisplaySettings() {
+        coordinator.openDisplaySettings()
+    }
+
     private func showRenameAlert(for snapshot: LayoutSnapshot) {
         let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         textField.stringValue = snapshot.customTitle ?? ""
@@ -965,6 +978,44 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
 }
 
 // MARK: - Custom views
+
+private final class ClickActionView: NSView {
+    weak var target: AnyObject?
+    var action: Selector?
+
+    init(contentView: NSView) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(contentView)
+
+        NSLayoutConstraint.activate([
+            contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)),
+              let action else {
+            return
+        }
+        NSApp.sendAction(action, to: target, from: self)
+    }
+}
 
 private final class TwoLineTableCell: NSTableCellView {
     init(title: String, subtitle: String) {

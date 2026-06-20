@@ -167,6 +167,10 @@ final class LayoutCoordinator {
         permissionManager.openSystemSettings()
     }
 
+    func openDisplaySettings() {
+        SystemSettings.openDisplays()
+    }
+
     private func publish(_ newStatus: AppStatus) {
         lastPermissionGranted = newStatus.permissionGranted
         statusDidChange?(newStatus)

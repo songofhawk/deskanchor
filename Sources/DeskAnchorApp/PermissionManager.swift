@@ -12,8 +12,31 @@ struct AccessibilityPermissionManager {
     }
 
     func openSystemSettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-            ?? URL(string: "x-apple.systempreferences:com.apple.preference.security")!
-        NSWorkspace.shared.open(url)
+        SystemSettings.openAccessibilityPrivacy()
+    }
+}
+
+enum SystemSettings {
+    static func openAccessibilityPrivacy() {
+        openFirstAvailable([
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "x-apple.systempreferences:com.apple.preference.security"
+        ])
+    }
+
+    static func openDisplays() {
+        openFirstAvailable([
+            "x-apple.systempreferences:com.apple.Displays-Settings.extension",
+            "x-apple.systempreferences:com.apple.preference.displays"
+        ])
+    }
+
+    private static func openFirstAvailable(_ urlStrings: [String]) {
+        for urlString in urlStrings {
+            guard let url = URL(string: urlString) else { continue }
+            if NSWorkspace.shared.open(url) {
+                return
+            }
+        }
     }
 }
