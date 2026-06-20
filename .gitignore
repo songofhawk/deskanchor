@@ -13,6 +13,7 @@ xcuserdata/
 # Local editor and tooling state
 .vscode/
 .idea/
+.claude/
 
 # Logs and temporary files
 *.log
