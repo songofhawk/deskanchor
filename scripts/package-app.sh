@@ -5,9 +5,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="${DESKANCHOR_VERSION:-0.1.0}"
 BUILD_NUMBER="${DESKANCHOR_BUILD:-1}"
 APP_DIR="$ROOT_DIR/.build/DeskAnchor.app"
-PKG_DIR="$ROOT_DIR/.build/package"
-PKG_PATH="$PKG_DIR/DeskAnchor-$VERSION.pkg"
-PKG_ROOT="$PKG_DIR/root"
+DMG_DIR="$ROOT_DIR/.build/dmg"
+DMG_STAGING_DIR="$DMG_DIR/staging"
+DIST_DIR="$ROOT_DIR/dist"
+DMG_PATH="$DIST_DIR/DeskAnchor-$VERSION.dmg"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -63,17 +64,18 @@ sed -i '' \
 
 codesign --force --deep --sign - "$APP_DIR"
 
-mkdir -p "$PKG_DIR"
-rm -rf "$PKG_ROOT"
-mkdir -p "$PKG_ROOT/Applications"
-ditto --norsrc --noextattr "$APP_DIR" "$PKG_ROOT/Applications/DeskAnchor.app"
+mkdir -p "$DIST_DIR" "$DMG_DIR"
+rm -rf "$DMG_STAGING_DIR" "$DMG_PATH" "$DIST_DIR/DeskAnchor.app"
+mkdir -p "$DMG_STAGING_DIR"
+ditto --norsrc --noextattr "$APP_DIR" "$DMG_STAGING_DIR/DeskAnchor.app"
+ln -s /Applications "$DMG_STAGING_DIR/Applications"
 
-COPYFILE_DISABLE=1 pkgbuild \
-    --identifier "dev.local.deskanchor.pkg" \
-    --version "$VERSION" \
-    --root "$PKG_ROOT" \
-    --install-location "/" \
-    "$PKG_PATH"
+COPYFILE_DISABLE=1 hdiutil create \
+    -volname "DeskAnchor" \
+    -srcfolder "$DMG_STAGING_DIR" \
+    -ov \
+    -format UDZO \
+    "$DMG_PATH"
 
 echo "App bundle: $APP_DIR"
-echo "Installer: $PKG_PATH"
+echo "Disk image: $DMG_PATH"
