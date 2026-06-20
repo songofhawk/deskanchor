@@ -41,6 +41,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
     private var selectedWindows: [WindowRecord] = []
     private var historyBrowserView: NSView?
     private var historyBrowserWidthConstraint: NSLayoutConstraint?
+    private var historyBrowserMinHeightConstraint: NSLayoutConstraint?
     private var rootStackView: NSStackView?
     private var mainColumnView: NSView?
     private var mainColumnCollapsedWidthConstraint: NSLayoutConstraint?
@@ -49,13 +50,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
 
     private enum WindowLayoutMetrics {
         static let compactSize = NSSize(width: 394, height: 540)
-        static let expandedSize = NSSize(width: 1320, height: 620)
+        static let expandedSize = NSSize(width: 1320, height: 646)
         static let compactMainColumnWidth: CGFloat = expandedMainColumnWidth
         static let expandedMainColumnWidth: CGFloat = 330
         static let historyBrowserWidth: CGFloat = 900
         static let historyListWidth: CGFloat = 430
         static let historyDetailMinWidth: CGFloat = 430
         static let primaryActionWidth: CGFloat = 270
+        static let mainFooterSpacerMaxHeight: CGFloat = 90
         static let historyTransitionDuration: TimeInterval = 0.24
     }
 
@@ -132,16 +134,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
         let primaryContent = NSStackView(views: [header, statusCard, messageToolbar, actions])
         primaryContent.orientation = .vertical
         primaryContent.alignment = .leading
+        primaryContent.distribution = .fill
         primaryContent.spacing = 18
         primaryContent.translatesAutoresizingMaskIntoConstraints = false
         fillWidth(primaryContent)
         primaryContent.setCustomSpacing(30, after: messageToolbar)
+        primaryContent.setContentHuggingPriority(.required, for: .vertical)
+        primaryContent.setContentCompressionResistancePriority(.required, for: .vertical)
         for view in primaryContent.arrangedSubviews {
             view.widthAnchor.constraint(equalTo: primaryContent.widthAnchor).isActive = true
         }
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .vertical)
+        spacer.heightAnchor.constraint(lessThanOrEqualToConstant: WindowLayoutMetrics.mainFooterSpacerMaxHeight).isActive = true
         let footer = identityFooter()
 
         let mainColumn = NSStackView(views: [
@@ -151,6 +157,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
         ])
         mainColumn.orientation = .vertical
         mainColumn.alignment = .leading
+        mainColumn.distribution = .fill
         mainColumn.spacing = 18
         mainColumn.translatesAutoresizingMaskIntoConstraints = false
         mainColumn.setHuggingPriority(.required, for: .horizontal)
@@ -188,7 +195,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
             stack.centerXAnchor.constraint(equalTo: background.centerXAnchor),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: background.leadingAnchor, constant: 32),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: background.trailingAnchor, constant: -32),
-            stack.topAnchor.constraint(equalTo: background.topAnchor, constant: 22),
+            stack.topAnchor.constraint(equalTo: background.topAnchor, constant: 42),
             stack.bottomAnchor.constraint(equalTo: background.bottomAnchor, constant: -24),
             historyBrowserWidthConstraint!,
             historyBrowser.leadingAnchor.constraint(equalTo: historyBrowserContainer.leadingAnchor),
@@ -235,8 +242,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
         browser.spacing = 12
         browser.translatesAutoresizingMaskIntoConstraints = false
 
+        let minHeightConstraint = browser.heightAnchor.constraint(greaterThanOrEqualToConstant: 560)
+        historyBrowserMinHeightConstraint = minHeightConstraint
         NSLayoutConstraint.activate([
-            browser.heightAnchor.constraint(greaterThanOrEqualToConstant: 560),
+            minHeightConstraint,
             listColumn.widthAnchor.constraint(equalToConstant: WindowLayoutMetrics.historyListWidth),
             listColumn.heightAnchor.constraint(equalTo: browser.heightAnchor),
             listView.widthAnchor.constraint(equalTo: listColumn.widthAnchor),
@@ -812,6 +821,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
         historyBrowserView?.isHidden = false
         historyBrowserView?.alphaValue = 0
         historyBrowserWidthConstraint?.constant = 0
+        historyBrowserMinHeightConstraint?.isActive = true
         if let mainColumnView {
             rootStackView?.setCustomSpacing(0, after: mainColumnView)
         }
@@ -823,6 +833,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
 
         let targetSize = expanded ? WindowLayoutMetrics.expandedSize : WindowLayoutMetrics.compactSize
         let targetFrame = windowFrame(for: targetSize)
+        if !expanded {
+            historyBrowserMinHeightConstraint?.isActive = false
+        }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = WindowLayoutMetrics.historyTransitionDuration
@@ -845,6 +858,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSTableV
                 historyBrowserView?.isHidden = true
                 historyBrowserView?.alphaValue = 1
                 window.minSize = WindowLayoutMetrics.compactSize
+                window.setFrame(self.windowFrame(for: WindowLayoutMetrics.compactSize), display: true)
             }
         }
     }
