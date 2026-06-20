@@ -238,17 +238,56 @@ final class AccessibilityWindowManager {
     }
 
     private func move(window: AXUIElement, to frame: Rect) -> Bool {
-        var size = CGSize(width: frame.width, height: frame.height)
-        var position = CGPoint(x: frame.x, y: frame.y)
+        _ = setPosition(of: window, to: frame)
 
-        guard let sizeValue = AXValueCreate(.cgSize, &size),
-              let positionValue = AXValueCreate(.cgPoint, &position) else {
+        let sizeResult = setSize(of: window, to: frame)
+        let positionResult = setPosition(of: window, to: frame)
+
+        guard sizeResult, positionResult else {
             return false
         }
 
-        let sizeResult = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
-        let positionResult = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
-        return sizeResult == .success && positionResult == .success
+        guard let actualFrame = currentFrame(of: window) else {
+            return true
+        }
+
+        return actualFrame.isApproximatelyEqual(to: frame, tolerance: 2)
+    }
+
+    private func setSize(of window: AXUIElement, to frame: Rect) -> Bool {
+        var size = CGSize(width: frame.width, height: frame.height)
+        guard let sizeValue = AXValueCreate(.cgSize, &size) else {
+            return false
+        }
+
+        return AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue) == .success
+    }
+
+    private func setPosition(of window: AXUIElement, to frame: Rect) -> Bool {
+        var position = CGPoint(x: frame.x, y: frame.y)
+        guard let positionValue = AXValueCreate(.cgPoint, &position) else {
+            return false
+        }
+
+        return AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue) == .success
+    }
+
+    private func currentFrame(of window: AXUIElement) -> Rect? {
+        guard let position = copyPointAttribute(window, kAXPositionAttribute),
+              let size = copySizeAttribute(window, kAXSizeAttribute) else {
+            return nil
+        }
+
+        return Rect(x: position.x, y: position.y, width: size.width, height: size.height)
+    }
+}
+
+private extension Rect {
+    func isApproximatelyEqual(to other: Rect, tolerance: Double) -> Bool {
+        abs(x - other.x) <= tolerance
+            && abs(y - other.y) <= tolerance
+            && abs(width - other.width) <= tolerance
+            && abs(height - other.height) <= tolerance
     }
 }
 

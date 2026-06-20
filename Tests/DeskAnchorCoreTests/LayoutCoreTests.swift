@@ -246,6 +246,123 @@ import Testing
     #expect(try store.snapshots() == [newerSnapshot, olderSnapshot])
 }
 
+@Test func layoutStoreDeletesSnapshotFromHistory() throws {
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let store = LayoutStore(fileURL: directory.appendingPathComponent("layouts.json"))
+    let fixedDate = Date(timeIntervalSince1970: 0)
+    let topology = DisplayTopology(capturedAt: fixedDate, displays: [
+        DisplayDescriptor(
+            id: 1,
+            name: "Main",
+            vendor: 1,
+            model: 2,
+            serial: 3,
+            bounds: Rect(x: 0, y: 0, width: 1440, height: 900),
+            scale: 2,
+            isMain: true
+        )
+    ])
+    let signature = WindowSignature(
+        bundleIdentifier: "com.example.app",
+        ownerName: "Example",
+        titleFingerprint: WindowMatcher.fingerprint(title: "Doc"),
+        role: "AXWindow",
+        subrole: "AXStandardWindow",
+        occurrence: 0
+    )
+    let olderSnapshot = LayoutSnapshot(
+        topology: topology,
+        windows: [
+            WindowRecord(
+                signature: signature,
+                title: "Doc",
+                frame: Rect(x: 10, y: 20, width: 300, height: 400),
+                displayHardwareKey: topology.displays.first?.hardwareKey,
+                isMinimized: false,
+                capturedAt: fixedDate
+            )
+        ],
+        capturedAt: fixedDate
+    )
+    let newerSnapshot = LayoutSnapshot(
+        topology: topology,
+        windows: [
+            WindowRecord(
+                signature: signature,
+                title: "Doc",
+                frame: Rect(x: 40, y: 50, width: 600, height: 700),
+                displayHardwareKey: topology.displays.first?.hardwareKey,
+                isMinimized: false,
+                capturedAt: fixedDate.addingTimeInterval(10)
+            )
+        ],
+        capturedAt: fixedDate.addingTimeInterval(10)
+    )
+
+    try store.upsert(olderSnapshot)
+    try store.upsert(newerSnapshot)
+
+    #expect(try store.delete(olderSnapshot))
+    #expect(try store.history(for: topology) == [newerSnapshot])
+    #expect(try store.snapshot(for: topology) == newerSnapshot)
+    #expect(try store.delete(newerSnapshot))
+    #expect(try store.history(for: topology).isEmpty)
+    #expect(try store.snapshot(for: topology) == nil)
+}
+
+@Test func layoutStoreRenamesSnapshotTitle() throws {
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let store = LayoutStore(fileURL: directory.appendingPathComponent("layouts.json"))
+    let fixedDate = Date(timeIntervalSince1970: 0)
+    let topology = DisplayTopology(capturedAt: fixedDate, displays: [
+        DisplayDescriptor(
+            id: 1,
+            name: "Main",
+            vendor: 1,
+            model: 2,
+            serial: 3,
+            bounds: Rect(x: 0, y: 0, width: 1440, height: 900),
+            scale: 2,
+            isMain: true
+        )
+    ])
+    let signature = WindowSignature(
+        bundleIdentifier: "com.example.app",
+        ownerName: "Example",
+        titleFingerprint: WindowMatcher.fingerprint(title: "Doc"),
+        role: "AXWindow",
+        subrole: "AXStandardWindow",
+        occurrence: 0
+    )
+    let snapshot = LayoutSnapshot(
+        topology: topology,
+        windows: [
+            WindowRecord(
+                signature: signature,
+                title: "Doc",
+                frame: Rect(x: 10, y: 20, width: 300, height: 400),
+                displayHardwareKey: topology.displays.first?.hardwareKey,
+                isMinimized: false,
+                capturedAt: fixedDate
+            )
+        ],
+        capturedAt: fixedDate
+    )
+
+    try store.upsert(snapshot)
+    let renamed = try #require(try store.rename(snapshot, to: "  公司三屏  "))
+
+    #expect(renamed.customTitle == "公司三屏")
+    #expect(try store.snapshot(for: topology)?.customTitle == "公司三屏")
+
+    let cleared = try #require(try store.rename(renamed, to: "   "))
+
+    #expect(cleared.customTitle == nil)
+    #expect(try store.snapshot(for: topology)?.customTitle == nil)
+}
+
 @Test func layoutStoreReadsLegacyTopologySnapshotFormat() throws {
     let fixedDate = Date(timeIntervalSince1970: 0)
     let topology = DisplayTopology(capturedAt: fixedDate, displays: [

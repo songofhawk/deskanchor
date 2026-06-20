@@ -150,6 +150,51 @@ public final class LayoutStore: @unchecked Sendable {
         try save(database)
     }
 
+    public func rename(_ snapshot: LayoutSnapshot, to title: String?) throws -> LayoutSnapshot? {
+        var database = try load()
+        let key = snapshot.topology.displaySetKey
+        guard var history = database.snapshotsByDisplaySetKey[key],
+              let index = history.firstIndex(where: { candidate in
+                  candidate.capturedAt == snapshot.capturedAt
+                      && candidate.topology.topologyKey == snapshot.topology.topologyKey
+              }) else {
+            return nil
+        }
+
+        let normalizedTitle = title?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        history[index].customTitle = normalizedTitle?.isEmpty == false ? normalizedTitle : nil
+        database.snapshotsByDisplaySetKey[key] = history
+        try save(database)
+        return history[index]
+    }
+
+    @discardableResult
+    public func delete(_ snapshot: LayoutSnapshot) throws -> Bool {
+        var database = try load()
+        let key = snapshot.topology.displaySetKey
+        guard var history = database.snapshotsByDisplaySetKey[key] else {
+            return false
+        }
+
+        let originalCount = history.count
+        history.removeAll { candidate in
+            candidate.capturedAt == snapshot.capturedAt
+                && candidate.topology.topologyKey == snapshot.topology.topologyKey
+        }
+        guard history.count != originalCount else {
+            return false
+        }
+
+        if history.isEmpty {
+            database.snapshotsByDisplaySetKey.removeValue(forKey: key)
+        } else {
+            database.snapshotsByDisplaySetKey[key] = history
+        }
+        try save(database)
+        return true
+    }
+
     public func snapshot(for topology: DisplayTopology) throws -> LayoutSnapshot? {
         try history(for: topology).first
     }

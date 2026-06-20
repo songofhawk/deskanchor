@@ -117,6 +117,45 @@ final class LayoutCoordinator {
         }
     }
 
+    func restore(snapshot: LayoutSnapshot, reason: String = "保存历史恢复") {
+        guard permissionManager.isTrusted else {
+            publish(status.withMessage("需要辅助功能权限才能恢复窗口位置"))
+            return
+        }
+
+        let result = windowManager.restore(snapshot: snapshot)
+        publish(status.withMessage("\(reason)：\(result.summary)"))
+    }
+
+    func renameSnapshot(_ snapshot: LayoutSnapshot, to title: String?) -> LayoutSnapshot? {
+        do {
+            guard let updated = try store.rename(snapshot, to: title) else {
+                publish(status.withMessage("这条保存历史已经不存在"))
+                return nil
+            }
+            publish(status.withMessage(updated.customTitle == nil ? "已恢复默认标题" : "已修改保存历史标题"))
+            return updated
+        } catch {
+            publish(status.withMessage("修改保存历史标题失败：\(error.localizedDescription)"))
+            return nil
+        }
+    }
+
+    @discardableResult
+    func deleteSnapshot(_ snapshot: LayoutSnapshot) -> Bool {
+        do {
+            guard try store.delete(snapshot) else {
+                publish(status.withMessage("这条保存历史已经不存在"))
+                return false
+            }
+            publish(status.withMessage("已删除一条保存历史"))
+            return true
+        } catch {
+            publish(status.withMessage("删除保存历史失败：\(error.localizedDescription)"))
+            return false
+        }
+    }
+
     func toggleAutoRestore() {
         preferences.autoRestoreEnabled.toggle()
         preferencesStore.save(preferences)

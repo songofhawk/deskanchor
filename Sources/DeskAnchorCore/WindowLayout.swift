@@ -72,11 +72,18 @@ public struct LayoutSnapshot: Codable, Equatable, Sendable {
     public var topology: DisplayTopology
     public var windows: [WindowRecord]
     public var capturedAt: Date
+    public var customTitle: String?
 
-    public init(topology: DisplayTopology, windows: [WindowRecord], capturedAt: Date = Date()) {
+    public init(
+        topology: DisplayTopology,
+        windows: [WindowRecord],
+        capturedAt: Date = Date(),
+        customTitle: String? = nil
+    ) {
         self.topology = topology
         self.windows = windows
         self.capturedAt = capturedAt
+        self.customTitle = customTitle
     }
 }
 
