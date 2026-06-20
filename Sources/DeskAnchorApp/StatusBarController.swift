@@ -90,13 +90,10 @@ final class StatusBarController {
         menu.addItem(.separator())
 
         menu.addItem(actionItem("保存当前布局", #selector(saveLayout)))
-        menu.addItem(actionItem("恢复当前显示器布局", #selector(restoreLayout)))
-        menu.addItem(actionItem(latestStatus.autoRestoreEnabled ? "暂停自动恢复" : "开启自动恢复", #selector(toggleAutoRestore)))
+        menu.addItem(actionItem("恢复最近布局", #selector(restoreLayout)))
 
         menu.addItem(.separator())
         menu.addItem(actionItem("显示主界面", #selector(showMainWindowAction)))
-        menu.addItem(actionItem("显示器详情...", #selector(showDisplayDetails)))
-        menu.addItem(actionItem("打开辅助功能设置...", #selector(openPermissionSettings)))
         menu.addItem(.separator())
         menu.addItem(actionItem("退出", #selector(quit)))
 
@@ -117,20 +114,8 @@ final class StatusBarController {
         coordinator.restoreCurrentLayout()
     }
 
-    @objc private func toggleAutoRestore() {
-        coordinator.toggleAutoRestore()
-    }
-
     @objc private func openPermissionSettings() {
         coordinator.openPermissionSettings()
-    }
-
-    @objc private func showDisplayDetails() {
-        let alert = NSAlert()
-        alert.messageText = "当前显示器"
-        alert.informativeText = latestStatus.displaySummary
-        alert.addButton(withTitle: "好")
-        alert.runModal()
     }
 
     @objc private func showMainWindowAction() {
