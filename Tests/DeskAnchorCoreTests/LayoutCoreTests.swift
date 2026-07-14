@@ -83,6 +83,41 @@ import Testing
     #expect(converted == Rect(x: -1262, y: -2160, width: 3840, height: 2160))
 }
 
+@Test func displayCoordinateSpaceUsesSystemMainDisplayInsteadOfTransientActiveScreen() throws {
+    let builtIn = DisplayDescriptor(
+        id: 1,
+        name: "Built-in",
+        vendor: 1,
+        model: 1,
+        serial: 1,
+        bounds: Rect(x: 0, y: 0, width: 1800, height: 1169),
+        scale: 2,
+        isMain: false
+    )
+    let external = DisplayDescriptor(
+        id: 3,
+        name: "External",
+        vendor: 2,
+        model: 2,
+        serial: 2,
+        bounds: Rect(x: -1085, y: 1169, width: 3360, height: 1890),
+        scale: 2,
+        isMain: true
+    )
+
+    let converted = DisplayCoordinateSpace.accessibilityTopology(
+        fromAppKitTopology: DisplayTopology(displays: [builtIn, external]),
+        mainDisplayID: builtIn.id
+    )
+    let convertedBuiltIn = try #require(converted.displays.first { $0.id == builtIn.id })
+    let convertedExternal = try #require(converted.displays.first { $0.id == external.id })
+
+    #expect(convertedBuiltIn.isMain == true)
+    #expect(convertedBuiltIn.bounds == Rect(x: 0, y: 0, width: 1800, height: 1169))
+    #expect(convertedExternal.isMain == false)
+    #expect(convertedExternal.bounds == Rect(x: -1085, y: -1890, width: 3360, height: 1890))
+}
+
 @Test func displayLocatorUsesWindowCenter() {
     let topology = DisplayTopology(displays: [
         DisplayDescriptor(

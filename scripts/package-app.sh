@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${DESKANCHOR_VERSION:-0.1.0}"
+VERSION="${DESKANCHOR_VERSION:-0.1.1}"
 BUILD_NUMBER="${DESKANCHOR_BUILD:-1}"
 APP_DIR="$ROOT_DIR/.build/DeskAnchor.app"
 DMG_DIR="$ROOT_DIR/.build/dmg"

@@ -32,7 +32,7 @@ DeskAnchor 不需要屏幕录制权限，不读取窗口内容，也不会截屏
 ### 下载与安装
 
 ```bash
-open dist/DeskAnchor-0.1.0.dmg
+open dist/DeskAnchor-0.1.1.dmg
 ```
 
 打开 DMG 后，将 `DeskAnchor.app` 拖入 `Applications` 文件夹，再从 `Applications` 启动 DeskAnchor。
@@ -126,10 +126,10 @@ swift test
 
 ```bash
 scripts/package-app.sh
-open dist/DeskAnchor-0.1.0.dmg
+open dist/DeskAnchor-0.1.1.dmg
 ```
 
-打包脚本会生成 `.build/DeskAnchor.app` 和 `dist/DeskAnchor-0.1.0.dmg`。
+打包脚本会生成 `.build/DeskAnchor.app` 和 `dist/DeskAnchor-0.1.1.dmg`。
 
 
 ## English
@@ -160,7 +160,7 @@ DeskAnchor does not require Screen Recording permission, does not inspect window
 ### Download And Install
 
 ```bash
-open dist/DeskAnchor-0.1.0.dmg
+open dist/DeskAnchor-0.1.1.dmg
 ```
 
 After opening the DMG, drag `DeskAnchor.app` into `Applications`, then launch DeskAnchor from `Applications`.
@@ -253,7 +253,7 @@ Create an installable DMG:
 
 ```bash
 scripts/package-app.sh
-open dist/DeskAnchor-0.1.0.dmg
+open dist/DeskAnchor-0.1.1.dmg
 ```
 
-The packaging script creates `.build/DeskAnchor.app` and `dist/DeskAnchor-0.1.0.dmg`.
+The packaging script creates `.build/DeskAnchor.app` and `dist/DeskAnchor-0.1.1.dmg`.
