@@ -11,6 +11,30 @@ public struct RestorePlanItem: Equatable, Sendable {
 }
 
 public enum RestorePlanner {
+    public static func sharedPlacementRecords(
+        in records: [WindowRecord]
+    ) -> [String: WindowRecord] {
+        var result: [String: WindowRecord] = [:]
+        var conflictingApplications: Set<String> = []
+
+        for record in records where !record.isMinimized {
+            let applicationKey = record.signature.applicationMatchKey
+            guard !conflictingApplications.contains(applicationKey) else {
+                continue
+            }
+
+            if let existing = result[applicationKey],
+               existing.frame != record.frame || existing.displayHardwareKey != record.displayHardwareKey {
+                result.removeValue(forKey: applicationKey)
+                conflictingApplications.insert(applicationKey)
+            } else {
+                result[applicationKey] = record
+            }
+        }
+
+        return result
+    }
+
     public static func targetFrame(
         savedFrame: Rect,
         savedDisplay: DisplayDescriptor?,

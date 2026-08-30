@@ -468,6 +468,38 @@ import Testing
     #expect(withoutBundle.applicationMatchKey == "owner:Example")
 }
 
+@Test func restorePlannerReusesSharedApplicationPlacement() throws {
+    let first = makeWindowRecord(
+        title: "First",
+        frame: Rect(x: 20, y: 40, width: 800, height: 600)
+    )
+    let second = makeWindowRecord(
+        title: "Second",
+        frame: first.frame
+    )
+
+    let placements = RestorePlanner.sharedPlacementRecords(in: [first, second])
+    let placement = try #require(placements[first.signature.applicationMatchKey])
+
+    #expect(placement.frame == first.frame)
+    #expect(placement.displayHardwareKey == first.displayHardwareKey)
+}
+
+@Test func restorePlannerDoesNotReuseConflictingApplicationPlacements() {
+    let first = makeWindowRecord(
+        title: "First",
+        frame: Rect(x: 20, y: 40, width: 800, height: 600)
+    )
+    let second = makeWindowRecord(
+        title: "Second",
+        frame: Rect(x: 300, y: 200, width: 800, height: 600)
+    )
+
+    let placements = RestorePlanner.sharedPlacementRecords(in: [first, second])
+
+    #expect(placements[first.signature.applicationMatchKey] == nil)
+}
+
 @Test func restorePlannerProjectsFrameAcrossResolutionChanges() {
     let saved = DisplayDescriptor(
         id: 1,
@@ -511,4 +543,22 @@ import Testing
 private struct LegacyLayoutDatabase: Encodable {
     var version: Int
     var snapshotsByTopologyKey: [String: LayoutSnapshot]
+}
+
+private func makeWindowRecord(title: String, frame: Rect) -> WindowRecord {
+    WindowRecord(
+        signature: WindowSignature(
+            bundleIdentifier: "com.example.app",
+            ownerName: "Example",
+            titleFingerprint: WindowMatcher.fingerprint(title: title),
+            role: "AXWindow",
+            subrole: "AXStandardWindow",
+            occurrence: 0
+        ),
+        title: title,
+        frame: frame,
+        displayHardwareKey: "display-1",
+        isMinimized: false,
+        capturedAt: Date(timeIntervalSince1970: 0)
+    )
 }

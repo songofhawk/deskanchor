@@ -37,6 +37,7 @@ final class AccessibilityWindowManager {
     func restore(snapshot: LayoutSnapshot) -> RestoreResult {
         let currentTopology = displayProvider.currentTopology()
         let liveWindows = liveWindowHandles()
+        let sharedPlacementRecords = RestorePlanner.sharedPlacementRecords(in: snapshot.windows)
         var exactWindowsByKey: [String: WindowHandle] = [:]
         var appWindowsByKey: [String: [WindowHandle]] = [:]
         var reservedExactWindowIDs: Set<WindowIdentifier> = []
@@ -50,9 +51,13 @@ final class AccessibilityWindowManager {
             appWindowsByKey[window.record.signature.applicationMatchKey, default: []].append(window)
         }
 
-        for record in snapshot.windows where !record.isMinimized {
+        for record in snapshot.windows {
             if let exact = exactWindowsByKey[record.signature.matchKey] {
-                reservedExactWindowIDs.insert(exact.id)
+                if record.isMinimized {
+                    usedWindowIDs.insert(exact.id)
+                } else {
+                    reservedExactWindowIDs.insert(exact.id)
+                }
             }
         }
 
@@ -68,33 +73,67 @@ final class AccessibilityWindowManager {
                 continue
             }
 
-            let savedDisplay = snapshot.topology.displays.first {
-                $0.hardwareKey == record.displayHardwareKey
-            }
-            let currentDisplay = currentTopology.displays.first {
-                $0.hardwareKey == record.displayHardwareKey
-            } ?? currentTopology.displays.first(where: \.isMain) ?? currentTopology.displays.first
-
-            guard let currentDisplay else {
+            usedWindowIDs.insert(handle.id)
+            guard let target = targetFrame(
+                for: record,
+                snapshot: snapshot,
+                currentTopology: currentTopology
+            ) else {
                 failed += 1
                 continue
             }
 
-            let target = RestorePlanner.targetFrame(
-                savedFrame: record.frame,
-                savedDisplay: savedDisplay,
-                currentDisplay: currentDisplay
-            )
+            if move(window: handle.element, to: target) {
+                restored += 1
+            } else {
+                failed += 1
+            }
+        }
+
+        for handle in liveWindows where !handle.record.isMinimized && !usedWindowIDs.contains(handle.id) {
+            guard let record = sharedPlacementRecords[handle.record.signature.applicationMatchKey] else {
+                continue
+            }
+
+            usedWindowIDs.insert(handle.id)
+            guard let target = targetFrame(
+                for: record,
+                snapshot: snapshot,
+                currentTopology: currentTopology
+            ) else {
+                failed += 1
+                continue
+            }
 
             if move(window: handle.element, to: target) {
                 restored += 1
-                usedWindowIDs.insert(handle.id)
             } else {
                 failed += 1
             }
         }
 
         return RestoreResult(restored: restored, skipped: skipped, failed: failed)
+    }
+
+    private func targetFrame(
+        for record: WindowRecord,
+        snapshot: LayoutSnapshot,
+        currentTopology: DisplayTopology
+    ) -> Rect? {
+        let savedDisplay = snapshot.topology.displays.first {
+            $0.hardwareKey == record.displayHardwareKey
+        }
+        guard let currentDisplay = currentTopology.displays.first(where: {
+            $0.hardwareKey == record.displayHardwareKey
+        }) ?? currentTopology.displays.first(where: \.isMain) ?? currentTopology.displays.first else {
+            return nil
+        }
+
+        return RestorePlanner.targetFrame(
+            savedFrame: record.frame,
+            savedDisplay: savedDisplay,
+            currentDisplay: currentDisplay
+        )
     }
 
     private func bestLiveWindow(

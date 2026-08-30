@@ -35,7 +35,7 @@ Sources/DeskAnchorApp
 
 `DisplayTopology.topologyKey` 包含显示器硬件签名和相对坐标。`WindowSignature` 使用 bundle id、应用名、窗口标题指纹、AX role/subrole 和 occurrence 形成匹配键。
 
-窗口没有长期稳定 ID，所以恢复策略必须保守。匹配不到的窗口跳过，不移动额外窗口。
+窗口没有长期稳定 ID，所以恢复时先按窗口签名精确匹配，再按 Bundle ID（缺失时用应用名）匹配新窗口。如果同一应用保存的所有非最小化窗口位置完全一致，则未被一对一匹配覆盖的新窗口也恢复到该共享位置；保存位置不一致时不移动额外窗口。
 
 ## 触发策略
 
