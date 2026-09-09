@@ -31,8 +31,18 @@ DeskAnchor 不需要屏幕录制权限，不读取窗口内容，也不会截屏
 
 ### 下载与安装
 
+从 [GitHub Releases](https://github.com/songofhawk/deskanchor/releases) 下载。当前 0.1.2 是测试预发布，支持 Apple Silicon 与 Intel，使用 ad-hoc 签名，**尚未 Developer ID 签名或 Apple 公证，Gatekeeper 可能阻止启动**。需要常规安装体验的用户请等待正式签名版。
+
+自有 Homebrew 测试渠道（同样使用未公证包）：
+
 ```bash
-open dist/DeskAnchor-0.1.1.dmg
+brew install --cask songofhawk/tap/deskanchor@beta
+```
+
+更多状态与正式签名依赖见 [分发记录](docs/distribution/README.md)。本地构建后可打开：
+
+```bash
+open dist/DeskAnchor-0.1.2.dmg
 ```
 
 打开 DMG 后，将 `DeskAnchor.app` 拖入 `Applications` 文件夹，再从 `Applications` 启动 DeskAnchor。
@@ -126,10 +136,10 @@ swift test
 
 ```bash
 scripts/package-app.sh
-open dist/DeskAnchor-0.1.1.dmg
+open dist/DeskAnchor-0.1.2.dmg
 ```
 
-打包脚本会生成 `.build/DeskAnchor.app` 和 `dist/DeskAnchor-0.1.1.dmg`。
+打包脚本会生成 `.build/DeskAnchor.app` 和 `dist/DeskAnchor-0.1.2.dmg`。
 
 
 ## English
@@ -159,8 +169,18 @@ DeskAnchor does not require Screen Recording permission, does not inspect window
 
 ### Download And Install
 
+Download from [GitHub Releases](https://github.com/songofhawk/deskanchor/releases). Version 0.1.2 is an Apple Silicon + Intel test prerelease. It is ad-hoc signed, **not Developer ID signed or notarized by Apple; Gatekeeper may block launch**. Wait for a signed release if you need a standard installation experience.
+
+The maintainer's Homebrew test channel uses the same unnotarized package:
+
 ```bash
-open dist/DeskAnchor-0.1.1.dmg
+brew install --cask songofhawk/tap/deskanchor@beta
+```
+
+See the [distribution record](docs/distribution/README.md) for status and signing prerequisites. After a local build:
+
+```bash
+open dist/DeskAnchor-0.1.2.dmg
 ```
 
 After opening the DMG, drag `DeskAnchor.app` into `Applications`, then launch DeskAnchor from `Applications`.
@@ -253,7 +273,7 @@ Create an installable DMG:
 
 ```bash
 scripts/package-app.sh
-open dist/DeskAnchor-0.1.1.dmg
+open dist/DeskAnchor-0.1.2.dmg
 ```
 
-The packaging script creates `.build/DeskAnchor.app` and `dist/DeskAnchor-0.1.1.dmg`.
+The packaging script creates `.build/DeskAnchor.app` and `dist/DeskAnchor-0.1.2.dmg`.
