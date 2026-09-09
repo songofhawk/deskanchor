@@ -9,7 +9,7 @@
 | GitHub Releases | [0.1.2 测试预发布已公开](https://github.com/songofhawk/deskanchor/releases/tag/v0.1.2)，DMG 与 SHA-256 均已上传；通用二进制，ad-hoc 签名，尚未 Developer ID 签名或公证。 |
 | 自有 Homebrew tap | [songofhawk/homebrew-tap 已公开](https://github.com/songofhawk/homebrew-tap)，`deskanchor@beta` 已通过实际下载、校验与隔离安装。安装包的 Gatekeeper 限制不会因使用 Homebrew 消失。 |
 | Homebrew 官方 cask | 暂不提交。当前包未通过 Gatekeeper；正式签名、公证及公共发行后再按收录规则评估。 |
-| Mac App Store | **尚未提交，无工单、无准入批准。** 官方咨询被 Apple Developer Agreement 页面阻挡，待账户所有者接受协议并确认账号后继续提交。 |
+| Mac App Store | **官方技术咨询已提交并取得案例编号，等待回复；无准入批准。** 提交渠道为 Apple Developer Support 的“开发与技术”邮件支持，非 App Review 审核结论。 |
 | Setapp | 暂不申请。官方要求成熟、稳定产品，技术审核和 SDK 集成；当前是早期未公证预发布，先完成正式发行及恢复稳定性验证。 |
 
 ## 已完成的验收
@@ -75,7 +75,7 @@ scripts/package-app.sh
 
 该实验只证明这一明确支持同步 AX 修改的目标在当前实现下受沙盒限制，不证明所有普通窗口恢复通过，也不是 App Review 决定。普通 AppKit 目标曾出现动画/恢复时序问题，需另行验证。
 
-原始材料已复制到本工作区忽略目录 `.build/apple-inquiry-evidence/`；对外咨询只提供最小技术摘要，不提交账户信息、完整系统日志或本机个人路径。咨询正文在该目录 `inquiry-en.txt`；真正提交后必须记录工单或确认页面，不能把草稿视为已提交。
+原始材料已复制到本工作区忽略目录 `.build/apple-inquiry-evidence/`；对外咨询只提供最小技术摘要，不提交账户信息、完整系统日志或本机个人路径。已发送正文在该目录 `inquiry-en.txt`，实际案例编号与确认页原文保存在 `submission-confirmation.json` 和 `SUBMITTED.md`。提交前通过表单可见邮箱核实了正确账号；官方已显示受理确认，当前等待邮件答复。支持案例编号和账号信息仅保存在本机，不上传到公共仓库。
 
 ## 官方依据
 
