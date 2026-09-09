@@ -6,11 +6,31 @@
 
 | 渠道 | 状态与依赖 |
 | --- | --- |
-| GitHub Releases | 0.1.2 预发布准备中；通用二进制，ad-hoc 签名，尚未 Developer ID 签名或公证。不能标为正式版。 |
-| 自有 Homebrew tap | 准备 `songofhawk/homebrew-tap` 的 `deskanchor@beta`，固定版本与 SHA-256。安装包的 Gatekeeper 限制不会因使用 Homebrew 消失。 |
+| GitHub Releases | [0.1.2 测试预发布已公开](https://github.com/songofhawk/deskanchor/releases/tag/v0.1.2)，DMG 与 SHA-256 均已上传；通用二进制，ad-hoc 签名，尚未 Developer ID 签名或公证。 |
+| 自有 Homebrew tap | [songofhawk/homebrew-tap 已公开](https://github.com/songofhawk/homebrew-tap)，`deskanchor@beta` 已通过实际下载、校验与隔离安装。安装包的 Gatekeeper 限制不会因使用 Homebrew 消失。 |
 | Homebrew 官方 cask | 暂不提交。当前包未通过 Gatekeeper；正式签名、公证及公共发行后再按收录规则评估。 |
-| Mac App Store | 尚无准入批准。官方咨询被 Apple Developer Agreement 页面阻挡，待账户所有者接受协议并确认账号后继续提交。 |
+| Mac App Store | **尚未提交，无工单、无准入批准。** 官方咨询被 Apple Developer Agreement 页面阻挡，待账户所有者接受协议并确认账号后继续提交。 |
 | Setapp | 暂不申请。官方要求成熟、稳定产品，技术审核和 SDK 集成；当前是早期未公证预发布，先完成正式发行及恢复稳定性验证。 |
+
+## 已完成的验收
+
+- Release 源码提交：`5f1269a3bed14395d1538a509d7a1161ac47a7cd`；不是重新上传历史 `dist/0.1.1` 包。
+- 发布包 SHA-256：`0a839f663e168dc9b6efa7b8e9e0644982bac01b4ba9443b61701dd028c752fb`，GitHub 服务端摘要和 Homebrew 公开下载校验一致。
+- `swift build` 通过；`scripts/package-app.sh` 在双架构下通过。保留既有 MainActor 隔离与调试路径映射警告。
+- 版本 0.1.2 / build 1，`LSMinimumSystemVersion=13.0`；两个 Mach-O slice 的 `minos` 均为 13.0。
+- `codesign --verify --deep --strict` 与 `hdiutil verify` 通过。签名为 `adhoc`，无 TeamIdentifier；`spctl --assess --type execute` 实测 **rejected**，不声称通过 Gatekeeper。
+- 无效版本、无效 build number、公证参数缺少 Developer ID 身份三项防误用检查通过。
+- Homebrew 6.0.18 的 `style --cask`、`info --cask`、`fetch --cask` 通过；已修复该版本不再接受的 `depends_on macos:` 字符串比较写法。
+- 从公共 cask 安装到工作区 `.build/homebrew-install` 成功，App 签名完整性通过，安装后可执行文件 SHA-256 与发布构建一致，`com.apple.quarantine` 保留。没有启动测试副本或授予辅助功能权限；安装不能视为启动验收。
+- 测试副本已用 `brew uninstall --cask` 卸载；原 `/Applications/DeskAnchor.app` 的可执行文件 SHA-256 前后相同。自有 tap 保留。
+- Homebrew 首次安装默认触发了旧版本及缓存清理，清理了旧 Cellar 版本和下载缓存。后续操作使用 `HOMEBREW_NO_INSTALL_CLEANUP=1`。
+- 本次没有 Intel 实机、macOS 13 实机、Developer ID 在线公证或 App Store 审核验收。
+
+安装测试渠道：
+
+```bash
+brew install --cask songofhawk/tap/deskanchor@beta
+```
 
 ## 打包
 
